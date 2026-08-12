@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { navItems, socialLinks, contactInfo } from "@/lib/constants";
 
 export default function Footer() {
@@ -34,12 +36,22 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8 mb-12">
           {/* Brand column */}
           <div className="lg:col-span-1">
-            <div className="flex items-center gap-2.5 mb-5">
-              <span className="text-2xl">🙏</span>
+            <Link
+              href="/"
+              className="flex items-center gap-2.5 mb-5 group inline-flex"
+              aria-label="Santhigiri Ashram — Home"
+            >
+              <Image
+                src="/lotus-emblem.jpg"
+                alt="Santhigiri Ashram Lotus Emblem"
+                width={36}
+                height={36}
+                className="w-8 h-8 lg:w-9 lg:h-9 object-contain rounded-full border border-white/20 transition-transform duration-300 group-hover:scale-105"
+              />
               <span className="font-heading text-xl font-bold text-white tracking-wide">
                 Santhigiri
               </span>
-            </div>
+            </Link>
             <p className="text-white/60 text-sm leading-relaxed mb-6">
               A sacred abode of spiritual wisdom, holistic healing, and selfless
               service — guiding seekers toward inner peace and universal harmony.

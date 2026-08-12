@@ -1,11 +1,6 @@
 // ===== Deities =====
 export const deities = [
-  { id: "guru", name: "Navajyothi Sri Karunakara Guru", description: "Founder & Spiritual Master" },
-  { id: "devi", name: "Sree Devi", description: "Divine Mother" },
-  { id: "ganapathi", name: "Sree Maha Ganapathi", description: "Remover of Obstacles" },
-  { id: "subramanya", name: "Sree Subramanya", description: "Lord of Wisdom" },
-  { id: "ayyappa", name: "Sree Dharma Sastha", description: "Lord Ayyappa" },
-  { id: "nagaraja", name: "Sree Nagaraja", description: "Serpent King" },
+  { id: "guru", name: "Navajyothi Sree Karunakara Guru", description: "Founder & Spiritual Master" },
 ];
 
 // ===== Nakshatras (27 birth stars) =====
@@ -19,8 +14,10 @@ export const nakshatras = [
 
 // ===== Pushpanjali Types =====
 export const pushpanjaliTypes = [
+  { id: "guru_pushpanjali", name: "Guru Pushpanjali", price: 15, description: "Special flower offering dedicated to Navajyothi Sree Karunakara Guru" },
   { id: "regular", name: "Regular Pushpanjali", price: 101, description: "Standard flower offering with prayers" },
   { id: "special", name: "Special Pushpanjali", price: 251, description: "Enhanced offering with special mantras and extended prayers" },
+  { id: "nithya_pushpanjali", name: "Nithya Pushpanjali (1 month)", price: 300, description: "Daily pushpanjali performed for a period of one month" },
   { id: "grand", name: "Grand Pushpanjali", price: 501, description: "Elaborate ceremony with garland, archana, and prasadam" },
 ];
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { navItems, languages } from "@/lib/constants";
@@ -62,7 +63,13 @@ export default function Navbar() {
             className="flex items-center gap-2.5 group"
             aria-label="Santhigiri Ashram — Home"
           >
-            <span className="text-2xl lg:text-3xl" aria-hidden="true">🙏</span>
+            <Image
+              src="/lotus-emblem.jpg"
+              alt="Santhigiri Ashram Lotus Emblem"
+              width={36}
+              height={36}
+              className="w-8 h-8 lg:w-9 lg:h-9 object-contain rounded-full border border-gold-light/20 transition-transform duration-300 group-hover:scale-105"
+            />
             <span
               className={`font-heading text-lg lg:text-xl font-bold tracking-wide transition-colors duration-300 ${
                 isScrolled ? "text-forest-dark" : "text-white"
@@ -73,13 +80,13 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop nav */}
-          <ul className="hidden lg:flex items-center gap-1" role="menubar">
+          <ul className="hidden lg:flex items-center gap-0.5 xl:gap-1" role="menubar">
             {navItems.map((item) => (
               <li key={item.href} role="none">
                 <Link
                   href={getHref(item.href)}
                   role="menuitem"
-                  className={`relative px-3 py-2 text-sm font-medium tracking-wide transition-colors duration-300 rounded-lg hover:bg-saffron/10 group ${
+                  className={`relative px-2 xl:px-3 py-2 text-xs xl:text-sm font-medium tracking-wide transition-colors duration-300 rounded-lg hover:bg-saffron/10 group ${
                     isScrolled
                       ? "text-forest-dark hover:text-saffron"
                       : "text-white/90 hover:text-white"

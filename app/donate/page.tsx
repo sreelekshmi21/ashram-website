@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { numberToWords } from "@/lib/numberToWords";
+import type { RazorpayOptions, RazorpayResponse } from "@/lib/razorpay";
+import "@/lib/razorpay"; // side-effect import for global Window type augmentation
 
 // ===== Types =====
 interface DonationData {
@@ -13,7 +16,6 @@ interface DonationData {
   phone: string;
   address: string;
   panNumber: string;
-  paymentMethod: string;
 }
 
 const PRESET_AMOUNTS = [500, 1000, 2000, 5000];
@@ -21,12 +23,14 @@ const PRESET_AMOUNTS = [500, 1000, 2000, 5000];
 const STEPS = [
   { id: 1, label: "Donation", icon: "💰" },
   { id: 2, label: "Personal Info", icon: "👤" },
-  { id: 3, label: "Payment", icon: "💳" },
-  { id: 4, label: "Finish", icon: "✅" },
+  { id: 3, label: "Finish", icon: "✅" },
 ];
 
 export default function DonatePage() {
   const [currentStep, setCurrentStep] = useState(1);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentId, setPaymentId] = useState("");
+  const [paymentError, setPaymentError] = useState("");
   const [data, setData] = useState<DonationData>({
     amount: 0,
     customAmount: "",
@@ -35,7 +39,6 @@ export default function DonatePage() {
     phone: "",
     address: "",
     panNumber: "",
-    paymentMethod: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -69,24 +72,123 @@ export default function DonatePage() {
       }
     }
 
-    if (step === 3) {
-      if (!data.paymentMethod) {
-        newErrors.paymentMethod = "Please select a payment method";
-      }
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
 
+  // Open Razorpay Checkout
+  async function initiatePayment() {
+    try {
+      // 1. Create order on the server
+      const res = await fetch("/api/razorpay/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: selectedAmount,
+          currency: "INR",
+          receipt: `donation_${Date.now()}`,
+          notes: {
+            donor: data.fullName,
+            email: data.email,
+            pan: data.panNumber || "N/A",
+          },
+        }),
+      });
+
+      const order = await res.json();
+
+      if (!res.ok) {
+        throw new Error(order.error || "Failed to create order");
+      }
+
+      // 2. Open Razorpay Checkout popup
+      const options: RazorpayOptions = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+        amount: order.amount,
+        currency: order.currency,
+        name: "Santhigiri Ashram",
+        description: `Donation of ₹${selectedAmount.toLocaleString("en-IN")}`,
+        order_id: order.id,
+        prefill: {
+          name: data.fullName,
+          email: data.email,
+          contact: `+91${data.phone}`,
+        },
+        theme: { color: "#E8913A" },
+        notes: {
+          donor_name: data.fullName,
+          pan: data.panNumber || "",
+        },
+        handler: async function (response: RazorpayResponse) {
+          // 3. Verify payment on the server
+          try {
+            const verifyRes = await fetch("/api/razorpay/verify-payment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+
+            const verifyData = await verifyRes.json();
+
+            if (verifyData.verified) {
+              setPaymentId(response.razorpay_payment_id);
+              setCurrentStep(3);
+            } else {
+              setPaymentError(
+                "Payment verification failed. Please contact support if amount was deducted."
+              );
+            }
+          } catch {
+            setPaymentError(
+              "Could not verify payment. Please contact support."
+            );
+          }
+          setIsProcessing(false);
+        },
+        modal: {
+          ondismiss: function () {
+            setIsProcessing(false);
+            setPaymentError("Payment was cancelled. You can try again.");
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", function () {
+        setIsProcessing(false);
+        setPaymentError(
+          "Payment failed. Please try again or use a different method."
+        );
+      });
+      rzp.open();
+    } catch (error: unknown) {
+      setIsProcessing(false);
+      const message =
+        error instanceof Error ? error.message : "Something went wrong";
+      setPaymentError(message);
+    }
+  }
+
   function handleContinue() {
-    if (validateStep(currentStep)) {
-      setCurrentStep((prev) => Math.min(prev + 1, 4));
+    if (currentStep === 2) {
+      // On step 2, validate then open Razorpay
+      if (validateStep(currentStep)) {
+        setIsProcessing(true);
+        setPaymentError("");
+        initiatePayment();
+      }
+    } else if (validateStep(currentStep)) {
+      setCurrentStep((prev) => Math.min(prev + 1, 3));
     }
   }
 
   function handleBack() {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
+    setPaymentError("");
   }
 
   function handleAmountSelect(amount: number) {
@@ -104,6 +206,7 @@ export default function DonatePage() {
   function handleChange(field: keyof DonationData, value: string) {
     setData((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: "" }));
+    setPaymentError("");
   }
 
   return (
@@ -114,9 +217,15 @@ export default function DonatePage() {
           <Link
             href="/"
             className="flex items-center gap-2.5 group"
-            aria-label="Back to home"
+            aria-label="Santhigiri Ashram — Home"
           >
-            <span className="text-2xl" aria-hidden="true">🙏</span>
+            <Image
+              src="/lotus-emblem.jpg"
+              alt="Santhigiri Ashram Lotus Emblem"
+              width={32}
+              height={32}
+              className="w-8 h-8 object-contain rounded-full border border-gold-light/20 transition-transform duration-300 group-hover:scale-105"
+            />
             <span className="font-heading text-lg font-bold text-forest-dark tracking-wide">
               Santhigiri
             </span>
@@ -186,6 +295,24 @@ export default function DonatePage() {
             ))}
           </div>
         </div>
+
+        {/* Payment Error Banner */}
+        {paymentError && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-fade-in">
+            <svg className="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <div>
+              <p className="text-red-700 text-sm font-medium">{paymentError}</p>
+              <button
+                onClick={() => setPaymentError("")}
+                className="text-red-500 text-xs mt-1 underline hover:text-red-700"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Step content card */}
         <div className="bg-white rounded-2xl shadow-lg border border-gold-light/20 overflow-hidden">
@@ -301,7 +428,11 @@ export default function DonatePage() {
                 Personal Information
               </h2>
               <p className="text-warm-gray text-sm mb-8">
-                Please provide your details for the donation receipt.
+                Please provide your details for the donation receipt. You&apos;ll pay{" "}
+                <span className="font-bold text-saffron">
+                  ₹{selectedAmount.toLocaleString("en-IN")}
+                </span>{" "}
+                via Razorpay after filling in your details.
               </p>
 
               <div className="space-y-5">
@@ -394,99 +525,6 @@ export default function DonatePage() {
                   />
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Step 3: Payment */}
-          {currentStep === 3 && (
-            <div className="p-6 md:p-10 animate-fade-in">
-              <h2 className="font-heading text-2xl font-bold text-forest-dark mb-2">
-                Payment Method
-              </h2>
-              <p className="text-warm-gray text-sm mb-8">
-                Choose how you&apos;d like to complete your donation of{" "}
-                <span className="font-bold text-saffron">
-                  ₹{selectedAmount.toLocaleString("en-IN")}
-                </span>
-              </p>
-
-              <div className="space-y-3">
-                {[
-                  {
-                    id: "upi",
-                    label: "UPI",
-                    desc: "Google Pay, PhonePe, Paytm, or any UPI app",
-                    icon: "📱",
-                  },
-                  {
-                    id: "card",
-                    label: "Credit / Debit Card",
-                    desc: "Visa, Mastercard, RuPay",
-                    icon: "💳",
-                  },
-                  {
-                    id: "netbanking",
-                    label: "Net Banking",
-                    desc: "All major Indian banks supported",
-                    icon: "🏦",
-                  },
-                  {
-                    id: "bank-transfer",
-                    label: "Direct Bank Transfer",
-                    desc: "NEFT / RTGS / IMPS",
-                    icon: "🔄",
-                  },
-                ].map((method) => (
-                  <button
-                    key={method.id}
-                    onClick={() => {
-                      handleChange("paymentMethod", method.id);
-                    }}
-                    className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-300 text-left ${
-                      data.paymentMethod === method.id
-                        ? "border-saffron bg-saffron/5 shadow-md shadow-saffron/10"
-                        : "border-gold-light/30 hover:border-saffron/40 hover:bg-cream/50"
-                    }`}
-                  >
-                    <div
-                      className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0 transition-all duration-300 ${
-                        data.paymentMethod === method.id
-                          ? "gradient-saffron shadow-sm"
-                          : "bg-cream border border-gold-light/20"
-                      }`}
-                    >
-                      {method.icon}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-heading font-bold text-forest-dark">
-                        {method.label}
-                      </p>
-                      <p className="text-xs text-warm-gray mt-0.5">{method.desc}</p>
-                    </div>
-                    {/* Radio circle */}
-                    <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-300 ${
-                        data.paymentMethod === method.id
-                          ? "border-saffron"
-                          : "border-gold-light/50"
-                      }`}
-                    >
-                      {data.paymentMethod === method.id && (
-                        <div className="w-2.5 h-2.5 rounded-full gradient-saffron" />
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              {errors.paymentMethod && (
-                <p className="text-red-500 text-sm mt-4 flex items-center gap-1.5">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  {errors.paymentMethod}
-                </p>
-              )}
 
               {/* Summary card */}
               <div className="mt-8 bg-cream/60 rounded-xl p-5 border border-gold-light/20">
@@ -500,14 +538,18 @@ export default function DonatePage() {
                       ₹{selectedAmount.toLocaleString("en-IN")}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-warm-gray">Donor</span>
-                    <span className="font-medium text-forest-dark">{data.fullName}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-warm-gray">Email</span>
-                    <span className="font-medium text-forest-dark">{data.email}</span>
-                  </div>
+                  {data.fullName && (
+                    <div className="flex justify-between">
+                      <span className="text-warm-gray">Donor</span>
+                      <span className="font-medium text-forest-dark">{data.fullName}</span>
+                    </div>
+                  )}
+                  {data.email && (
+                    <div className="flex justify-between">
+                      <span className="text-warm-gray">Email</span>
+                      <span className="font-medium text-forest-dark">{data.email}</span>
+                    </div>
+                  )}
                   <div className="border-t border-gold-light/20 my-2" />
                   <div className="flex justify-between">
                     <span className="text-warm-gray font-semibold">In Words</span>
@@ -520,8 +562,8 @@ export default function DonatePage() {
             </div>
           )}
 
-          {/* Step 4: Finish */}
-          {currentStep === 4 && (
+          {/* Step 3: Finish */}
+          {currentStep === 3 && (
             <div className="p-6 md:p-10 text-center animate-fade-in">
               {/* Success animation */}
               <div className="w-24 h-24 rounded-full gradient-saffron flex items-center justify-center mx-auto mb-6 shadow-xl shadow-saffron/20 animate-fade-in-up">
@@ -562,12 +604,14 @@ export default function DonatePage() {
                   Transaction Details
                 </h3>
                 <div className="space-y-2.5 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-warm-gray">Transaction ID</span>
-                    <span className="font-mono font-bold text-forest-dark text-xs">
-                      TXN{Date.now().toString(36).toUpperCase()}
-                    </span>
-                  </div>
+                  {paymentId && (
+                    <div className="flex justify-between">
+                      <span className="text-warm-gray">Payment ID</span>
+                      <span className="font-mono font-bold text-green-600 text-xs">
+                        {paymentId}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-warm-gray">Amount</span>
                     <span className="font-bold text-saffron">
@@ -580,8 +624,8 @@ export default function DonatePage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-warm-gray">Payment</span>
-                    <span className="font-medium text-forest-dark capitalize">
-                      {data.paymentMethod.replace("-", " ")}
+                    <span className="font-medium text-forest-dark">
+                      Razorpay
                     </span>
                   </div>
                   <div className="border-t border-gold-light/20 my-2" />
@@ -607,9 +651,11 @@ export default function DonatePage() {
                 <button
                   onClick={() => {
                     setCurrentStep(1);
+                    setPaymentId("");
+                    setPaymentError("");
                     setData({
                       amount: 0, customAmount: "", fullName: "", email: "",
-                      phone: "", address: "", panNumber: "", paymentMethod: "",
+                      phone: "", address: "", panNumber: "",
                     });
                   }}
                   className="inline-flex items-center gap-2 px-6 py-3 border-2 border-saffron/30 text-saffron font-semibold rounded-full hover:bg-saffron/5 transition-all duration-300"
@@ -621,12 +667,13 @@ export default function DonatePage() {
           )}
 
           {/* Navigation buttons */}
-          {currentStep < 4 && (
+          {currentStep < 3 && (
             <div className="px-6 md:px-10 pb-6 md:pb-10 flex items-center justify-between gap-4">
               {currentStep > 1 ? (
                 <button
                   onClick={handleBack}
-                  className="flex items-center gap-2 px-5 py-2.5 text-warm-gray font-medium rounded-xl hover:bg-cream transition-colors duration-200"
+                  disabled={isProcessing}
+                  className="flex items-center gap-2 px-5 py-2.5 text-warm-gray font-medium rounded-xl hover:bg-cream transition-colors duration-200 disabled:opacity-50"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -639,17 +686,37 @@ export default function DonatePage() {
 
               <button
                 onClick={handleContinue}
-                className="group flex items-center gap-2 px-8 py-3 gradient-saffron text-white font-semibold rounded-full shadow-lg shadow-saffron/20 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
+                disabled={isProcessing}
+                className="group flex items-center gap-2 px-8 py-3 gradient-saffron text-white font-semibold rounded-full shadow-lg shadow-saffron/20 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
               >
-                {currentStep === 3 ? "Confirm & Pay" : "Continue"}
-                <svg
-                  className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+                {isProcessing ? (
+                  <>
+                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
+                      <path fill="currentColor" className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Opening Payment...
+                  </>
+                ) : currentStep === 2 ? (
+                  <>
+                    Confirm & Pay ₹{selectedAmount.toLocaleString("en-IN")}
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                  </>
+                ) : (
+                  <>
+                    Continue
+                    <svg
+                      className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </>
+                )}
               </button>
             </div>
           )}
@@ -661,7 +728,7 @@ export default function DonatePage() {
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
-            256-bit SSL Secured
+            Secure Payment via Razorpay
           </div>
           <div className="flex items-center gap-1.5">
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">

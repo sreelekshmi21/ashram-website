@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { contactInfo } from "@/lib/constants";
+import { contactSchema } from "@/lib/validations/contactSchema";
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -10,25 +11,99 @@ export default function Contact() {
     subject: "",
     message: "",
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    const result = contactSchema.safeParse({
+      fullName: formData.name,
+      email: formData.email,
+      subject: formData.subject,
+      message: formData.message,
+    });
+
+    if (!result.success) {
+      result.error.issues.forEach((issue) => {
+        const field = issue.path[0];
+        if (field) {
+          const key = field === "fullName" ? "name" : String(field);
+          if (!newErrors[key]) {
+            newErrors[key] = issue.message;
+          }
+        }
+      });
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    setServerError(null);
+    setSubmitSuccess(false);
+
+    // Client-side validation
+    const isValid = validateForm();
+    if (!isValid) return;
+
     setIsSubmitting(true);
-    // Simulate submission
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setSubmitted(true);
+
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.errors) {
+          setErrors(data.errors);
+        } else {
+          setServerError(
+            data.message || "An error occurred while submitting your message. Please try again."
+          );
+        }
+        return;
+      }
+
+      // Success
+      setSubmitSuccess(true);
       setFormData({ name: "", email: "", subject: "", message: "" });
-      setTimeout(() => setSubmitted(false), 3000);
-    }, 1000);
+      setErrors({});
+    } catch (err) {
+      console.error("Submission error:", err);
+      setServerError("Network error. Please check your connection and try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+    if (serverError) {
+      setServerError(null);
+    }
+    if (submitSuccess) {
+      setSubmitSuccess(false);
+    }
   };
 
   return (
@@ -156,11 +231,38 @@ export default function Contact() {
           <div className="reveal-right">
             <form
               onSubmit={handleSubmit}
+              noValidate
               className="bg-white rounded-2xl p-6 md:p-8 shadow-lg border border-gold-light/20"
             >
               <h3 className="font-heading text-2xl font-bold text-forest-dark mb-6">
                 Send us a Message
               </h3>
+
+              {/* Success Notification Banner */}
+              {submitSuccess && (
+                <div
+                  role="status"
+                  className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium flex items-start gap-3"
+                >
+                  <svg className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Your message has been submitted successfully. We will get back to you soon.</span>
+                </div>
+              )}
+
+              {/* General Server Error Banner */}
+              {serverError && (
+                <div
+                  role="alert"
+                  className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm font-medium flex items-start gap-3"
+                >
+                  <svg className="w-5 h-5 text-red-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>{serverError}</span>
+                </div>
+              )}
 
               <div className="space-y-5">
                 {/* Name */}
@@ -176,11 +278,25 @@ export default function Contact() {
                     name="name"
                     type="text"
                     required
+                    aria-invalid={!!errors.name}
+                    aria-describedby={errors.name ? "contact-name-error" : undefined}
                     value={formData.name}
                     onChange={handleChange}
                     placeholder="Enter your full name"
-                    className="w-full px-4 py-3 rounded-xl border border-gold-light/30 bg-cream/50 text-forest-dark placeholder-warm-gray-light focus:outline-none focus:ring-2 focus:ring-saffron/30 focus:border-saffron transition-all duration-300"
+                    className={`w-full px-4 py-3 rounded-xl border bg-cream/50 text-forest-dark placeholder-warm-gray-light focus:outline-none transition-all duration-300 ${
+                      errors.name
+                        ? "border-red-400 focus:ring-2 focus:ring-red-200 focus:border-red-500"
+                        : "border-gold-light/30 focus:ring-2 focus:ring-saffron/30 focus:border-saffron"
+                    }`}
                   />
+                  {errors.name && (
+                    <p id="contact-name-error" className="mt-1.5 text-xs text-red-600 font-medium flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.name}
+                    </p>
+                  )}
                 </div>
 
                 {/* Email */}
@@ -196,11 +312,25 @@ export default function Contact() {
                     name="email"
                     type="email"
                     required
+                    aria-invalid={!!errors.email}
+                    aria-describedby={errors.email ? "contact-email-error" : undefined}
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="your@email.com"
-                    className="w-full px-4 py-3 rounded-xl border border-gold-light/30 bg-cream/50 text-forest-dark placeholder-warm-gray-light focus:outline-none focus:ring-2 focus:ring-saffron/30 focus:border-saffron transition-all duration-300"
+                    className={`w-full px-4 py-3 rounded-xl border bg-cream/50 text-forest-dark placeholder-warm-gray-light focus:outline-none transition-all duration-300 ${
+                      errors.email
+                        ? "border-red-400 focus:ring-2 focus:ring-red-200 focus:border-red-500"
+                        : "border-gold-light/30 focus:ring-2 focus:ring-saffron/30 focus:border-saffron"
+                    }`}
                   />
+                  {errors.email && (
+                    <p id="contact-email-error" className="mt-1.5 text-xs text-red-600 font-medium flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.email}
+                    </p>
+                  )}
                 </div>
 
                 {/* Subject */}
@@ -216,11 +346,25 @@ export default function Contact() {
                     name="subject"
                     type="text"
                     required
+                    aria-invalid={!!errors.subject}
+                    aria-describedby={errors.subject ? "contact-subject-error" : undefined}
                     value={formData.subject}
                     onChange={handleChange}
                     placeholder="How can we help?"
-                    className="w-full px-4 py-3 rounded-xl border border-gold-light/30 bg-cream/50 text-forest-dark placeholder-warm-gray-light focus:outline-none focus:ring-2 focus:ring-saffron/30 focus:border-saffron transition-all duration-300"
+                    className={`w-full px-4 py-3 rounded-xl border bg-cream/50 text-forest-dark placeholder-warm-gray-light focus:outline-none transition-all duration-300 ${
+                      errors.subject
+                        ? "border-red-400 focus:ring-2 focus:ring-red-200 focus:border-red-500"
+                        : "border-gold-light/30 focus:ring-2 focus:ring-saffron/30 focus:border-saffron"
+                    }`}
                   />
+                  {errors.subject && (
+                    <p id="contact-subject-error" className="mt-1.5 text-xs text-red-600 font-medium flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.subject}
+                    </p>
+                  )}
                 </div>
 
                 {/* Message */}
@@ -236,11 +380,25 @@ export default function Contact() {
                     name="message"
                     required
                     rows={5}
+                    aria-invalid={!!errors.message}
+                    aria-describedby={errors.message ? "contact-message-error" : undefined}
                     value={formData.message}
                     onChange={handleChange}
                     placeholder="Write your message here..."
-                    className="w-full px-4 py-3 rounded-xl border border-gold-light/30 bg-cream/50 text-forest-dark placeholder-warm-gray-light focus:outline-none focus:ring-2 focus:ring-saffron/30 focus:border-saffron transition-all duration-300 resize-none"
+                    className={`w-full px-4 py-3 rounded-xl border bg-cream/50 text-forest-dark placeholder-warm-gray-light focus:outline-none transition-all duration-300 resize-none ${
+                      errors.message
+                        ? "border-red-400 focus:ring-2 focus:ring-red-200 focus:border-red-500"
+                        : "border-gold-light/30 focus:ring-2 focus:ring-saffron/30 focus:border-saffron"
+                    }`}
                   />
+                  {errors.message && (
+                    <p id="contact-message-error" className="mt-1.5 text-xs text-red-600 font-medium flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.message}
+                    </p>
+                  )}
                 </div>
 
                 {/* Submit */}
@@ -273,7 +431,7 @@ export default function Contact() {
                       </svg>
                       Sending...
                     </>
-                  ) : submitted ? (
+                  ) : submitSuccess ? (
                     <>
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

@@ -1,13 +1,61 @@
-import { publications } from "@/lib/constants";
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useScrollReveal } from "@/lib/animations";
+import { publications as staticPublications } from "@/lib/constants";
+
+interface PublicationItem {
+  id?: string;
+  title: string;
+  slug: string;
+  author: string;
+  price: number;
+  gradient?: string | null;
+  coverImage?: string | null;
+}
+
+const fallbackPublicationsList: PublicationItem[] = staticPublications.map((pub) => ({
+  id: pub.slug,
+  title: pub.title,
+  slug: pub.slug,
+  author: pub.author,
+  price: pub.price,
+  gradient: pub.gradient,
+  coverImage: null,
+}));
 
 export default function Publications() {
+  const [publications, setPublications] = useState<PublicationItem[]>(fallbackPublicationsList);
+  const [loading, setLoading] = useState(false);
+
+  useScrollReveal([loading]);
+
+  useEffect(() => {
+    async function loadPublications() {
+      try {
+        const res = await fetch("/api/publications");
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          setPublications(json.data);
+        }
+      } catch (error) {
+        console.error("Failed to load publications from API:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadPublications();
+  }, []);
+
   return (
     <section id="publications" className="section-padding gradient-warm relative overflow-hidden">
       <div className="absolute inset-0 mandala-pattern opacity-30" aria-hidden="true" />
 
       <div className="relative mx-auto max-w-7xl">
         {/* Section header */}
-        <div className="text-center mb-16 reveal">
+        <div className="text-center mb-16 reveal revealed">
           <div className="flex items-center justify-center gap-3 mb-4">
             <span className="h-px w-8 bg-saffron" />
             <span className="text-saffron text-sm font-semibold tracking-[0.2em] uppercase">
@@ -24,43 +72,55 @@ export default function Publications() {
           </p>
         </div>
 
-        {/* Publications scroll */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {publications.map((pub, index) => (
-            <div
-              key={pub.title}
-              className="reveal group card-hover"
-              style={{ transitionDelay: `${index * 100}ms` }}
-            >
-              {/* Book cover */}
-              <div
-                className="relative aspect-[3/4] rounded-2xl overflow-hidden shadow-lg mb-4"
-                style={{ background: pub.gradient }}
+        {publications.length === 0 ? (
+          <div className="text-center py-12 bg-white/60 rounded-2xl border border-gold-light/20 max-w-xl mx-auto">
+            <p className="text-warm-gray text-lg">
+              No publications available at the moment. Please check back soon!
+            </p>
+          </div>
+        ) : (
+          /* Publications grid */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {publications.map((pub, index) => (
+              <Link
+                key={pub.slug}
+                href={`/shop/publications/${pub.slug}`}
+                className="reveal revealed group card-hover block cursor-pointer animate-fade-in-up"
+                style={{ transitionDelay: `${index * 100}ms` }}
               >
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
-                  <span className="text-4xl mb-4 opacity-40">📖</span>
-                  <h4 className="font-heading text-lg font-bold text-white leading-snug">
-                    {pub.title}
-                  </h4>
-                  <p className="text-white/60 text-sm mt-2">{pub.author}</p>
+                {/* Book cover */}
+                <div
+                  className="relative aspect-[3/4] rounded-2xl overflow-hidden shadow-lg mb-4"
+                  style={{ background: pub.gradient || "linear-gradient(135deg, #1A3A25, #2D5A3D, #3D7A53)" }}
+                >
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+                    <span className="text-4xl mb-4 opacity-40">📖</span>
+                    <h4 className="font-heading text-lg font-bold text-white leading-snug">
+                      {pub.title}
+                    </h4>
+                    <p className="text-white/60 text-sm mt-2">{pub.author}</p>
+                  </div>
+
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-forest-dark/0 group-hover:bg-forest-dark/60 transition-colors duration-300 flex flex-col items-center justify-center gap-3">
+                    <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 inline-flex items-center gap-2 px-5 py-2.5 bg-white rounded-full text-forest-dark text-sm font-semibold shadow-lg">
+                      View Details →
+                    </span>
+                    <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75 text-white/80 text-sm font-medium">
+                      ₹{pub.price}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Hover overlay */}
-                <div className="absolute inset-0 bg-forest-dark/0 group-hover:bg-forest-dark/60 transition-colors duration-300 flex items-center justify-center">
-                  <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 inline-flex items-center gap-2 px-5 py-2.5 bg-white rounded-full text-forest-dark text-sm font-semibold shadow-lg">
-                    Read More
-                  </span>
-                </div>
-              </div>
-
-              {/* Book info */}
-              <h3 className="font-heading text-base font-bold text-forest-dark group-hover:text-saffron transition-colors duration-300 leading-snug mb-1">
-                {pub.title}
-              </h3>
-              <p className="text-warm-gray text-xs">{pub.author}</p>
-            </div>
-          ))}
-        </div>
+                {/* Book info */}
+                <h3 className="font-heading text-base font-bold text-forest-dark group-hover:text-saffron transition-colors duration-300 leading-snug mb-1">
+                  {pub.title}
+                </h3>
+                <p className="text-warm-gray text-xs">{pub.author}</p>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

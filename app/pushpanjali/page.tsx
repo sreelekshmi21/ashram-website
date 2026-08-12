@@ -9,6 +9,8 @@ import {
   pushpanjaliTypes,
   timeSlots,
 } from "@/lib/pushpanjaliData";
+import type { RazorpayOptions, RazorpayResponse } from "@/lib/razorpay";
+import "@/lib/razorpay"; // side-effect import for global Window type augmentation
 
 // ===== Types =====
 interface FamilyMember {
@@ -34,7 +36,7 @@ interface BookingData {
 export default function PushpanjaliPage() {
   const [data, setData] = useState<BookingData>({
     pushpanjaliType: "",
-    deity: "",
+    deity: "guru",
     preferredDate: "",
     timeSlot: "",
     devoteeName: "",
@@ -48,6 +50,8 @@ export default function PushpanjaliPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentId, setPaymentId] = useState("");
+  const [paymentError, setPaymentError] = useState("");
 
   // Minimum date is tomorrow
   const tomorrow = new Date();
@@ -96,6 +100,7 @@ export default function PushpanjaliPage() {
   function handleChange(field: keyof BookingData, value: string) {
     setData((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: "" }));
+    setPaymentError("");
   }
 
   // Validate
@@ -133,16 +138,116 @@ export default function PushpanjaliPage() {
     return Object.keys(newErrors).length === 0;
   }
 
+  // Open Razorpay Checkout
+  async function initiatePayment() {
+    if (!selectedType) return;
+
+    try {
+      // 1. Create order on the server
+      const res = await fetch("/api/razorpay/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: selectedType.price,
+          currency: "INR",
+          receipt: `pushpanjali_${Date.now()}`,
+          notes: {
+            type: selectedType.name,
+            deity: deities.find((d) => d.id === data.deity)?.name || "",
+            devotee: data.devoteeName,
+            date: data.preferredDate,
+          },
+        }),
+      });
+
+      const order = await res.json();
+
+      if (!res.ok) {
+        throw new Error(order.error || "Failed to create order");
+      }
+
+      // 2. Open Razorpay Checkout popup
+      const options: RazorpayOptions = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+        amount: order.amount,
+        currency: order.currency,
+        name: "Santhigiri Ashram",
+        description: `${selectedType.name} — ${deities.find((d) => d.id === data.deity)?.name}`,
+        order_id: order.id,
+        prefill: {
+          name: data.devoteeName,
+          email: data.email,
+          contact: `+91${data.phone}`,
+        },
+        theme: { color: "#E8913A" }, // saffron
+        notes: {
+          pushpanjali_type: selectedType.id,
+          deity: data.deity,
+          preferred_date: data.preferredDate,
+          time_slot: data.timeSlot,
+        },
+        handler: async function (response: RazorpayResponse) {
+          // 3. Verify payment on the server
+          try {
+            const verifyRes = await fetch("/api/razorpay/verify-payment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+
+            const verifyData = await verifyRes.json();
+
+            if (verifyData.verified) {
+              setPaymentId(response.razorpay_payment_id);
+              setSubmitted(true);
+            } else {
+              setPaymentError(
+                "Payment verification failed. Please contact support if amount was deducted."
+              );
+            }
+          } catch {
+            setPaymentError(
+              "Could not verify payment. Please contact support."
+            );
+          }
+          setIsSubmitting(false);
+        },
+        modal: {
+          ondismiss: function () {
+            setIsSubmitting(false);
+            setPaymentError("Payment was cancelled. You can try again.");
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", function () {
+        setIsSubmitting(false);
+        setPaymentError(
+          "Payment failed. Please try again or use a different method."
+        );
+      });
+      rzp.open();
+    } catch (error: unknown) {
+      setIsSubmitting(false);
+      const message =
+        error instanceof Error ? error.message : "Something went wrong";
+      setPaymentError(message);
+    }
+  }
+
   // Submit
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validate()) return;
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setSubmitted(true);
-    }, 1500);
+    setPaymentError("");
+    initiatePayment();
   }
 
   // ===== Success State =====
@@ -152,8 +257,14 @@ export default function PushpanjaliPage() {
         {/* Header */}
         <header className="glass sticky top-0 z-50 border-b border-gold-light/30 shadow-sm">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-            <Link href="/" className="flex items-center gap-2.5">
-              <span className="text-2xl">🙏</span>
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <Image
+                src="/lotus-emblem.jpg"
+                alt="Santhigiri Ashram Lotus Emblem"
+                width={32}
+                height={32}
+                className="w-8 h-8 object-contain rounded-full border border-gold-light/20 transition-transform duration-300 group-hover:scale-105"
+              />
               <span className="font-heading text-lg font-bold text-forest-dark tracking-wide">
                 Santhigiri
               </span>
@@ -180,11 +291,11 @@ export default function PushpanjaliPage() {
             </div>
 
             <h1 className="font-heading text-3xl font-bold text-forest-dark mb-4">
-              Pushpanjali Booked! 🌸
+              Payment Successful! 🌸
             </h1>
             <p className="text-warm-gray text-lg mb-3">
               Your <span className="font-semibold text-saffron">{selectedType?.name}</span> has
-              been successfully registered.
+              been successfully booked and paid for.
             </p>
             <p className="text-warm-gray text-sm mb-8">
               A confirmation email will be sent to{" "}
@@ -198,6 +309,14 @@ export default function PushpanjaliPage() {
                 Booking Summary
               </h3>
               <div className="space-y-3 text-sm">
+                {paymentId && (
+                  <div className="flex justify-between">
+                    <span className="text-warm-gray">Payment ID</span>
+                    <span className="font-mono font-bold text-green-600 text-xs">
+                      {paymentId}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-warm-gray">Booking ID</span>
                   <span className="font-mono font-bold text-forest-dark text-xs">
@@ -245,7 +364,7 @@ export default function PushpanjaliPage() {
                 )}
                 <div className="border-t border-gold-light/20 my-2" />
                 <div className="flex justify-between">
-                  <span className="text-warm-gray font-semibold">Amount</span>
+                  <span className="text-warm-gray font-semibold">Amount Paid</span>
                   <span className="font-bold text-saffron text-lg">
                     ₹{selectedType?.price}
                   </span>
@@ -263,9 +382,11 @@ export default function PushpanjaliPage() {
               <button
                 onClick={() => {
                   setSubmitted(false);
+                  setPaymentId("");
+                  setPaymentError("");
                   setData({
                     pushpanjaliType: "",
-                    deity: "",
+                    deity: "guru",
                     preferredDate: "",
                     timeSlot: "",
                     devoteeName: "",
@@ -294,8 +415,14 @@ export default function PushpanjaliPage() {
       {/* Header */}
       <header className="glass sticky top-0 z-50 border-b border-gold-light/30 shadow-sm">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-          <Link href="/" className="flex items-center gap-2.5">
-            <span className="text-2xl">🙏</span>
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <Image
+              src="/lotus-emblem.jpg"
+              alt="Santhigiri Ashram Lotus Emblem"
+              width={32}
+              height={32}
+              className="w-8 h-8 object-contain rounded-full border border-gold-light/20 transition-transform duration-300 group-hover:scale-105"
+            />
             <span className="font-heading text-lg font-bold text-forest-dark tracking-wide">
               Santhigiri
             </span>
@@ -315,8 +442,8 @@ export default function PushpanjaliPage() {
       {/* Hero Banner */}
       <section className="relative h-[340px] sm:h-[400px] lg:h-[450px] overflow-hidden">
         <Image
-          src="/pushpanjali-hero.png"
-          alt="Sacred flower offering ceremony at Santhigiri Ashram"
+          src="/images/home/hero-evening.png"
+          alt="Santhigiri Ashram Lotus Parnasala"
           fill
           priority
           className="object-cover"
@@ -379,6 +506,24 @@ export default function PushpanjaliPage() {
             </div>
           </div>
         </div>
+
+        {/* Payment Error Banner */}
+        {paymentError && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-fade-in">
+            <svg className="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <div>
+              <p className="text-red-700 text-sm font-medium">{paymentError}</p>
+              <button
+                onClick={() => setPaymentError("")}
+                className="text-red-500 text-xs mt-1 underline hover:text-red-700"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Booking Form */}
         <form onSubmit={handleSubmit}>
@@ -830,11 +975,11 @@ export default function PushpanjaliPage() {
                         <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
                         <path fill="currentColor" className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      Processing...
+                      Opening Payment...
                     </>
                   ) : (
                     <>
-                      Book Pushpanjali — ₹{selectedType.price}
+                      Pay & Book Pushpanjali — ₹{selectedType.price}
                       <svg className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                       </svg>
@@ -852,7 +997,7 @@ export default function PushpanjaliPage() {
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
-            Secure Booking
+            Secure Payment via Razorpay
           </div>
           <div className="flex items-center gap-1.5">
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">

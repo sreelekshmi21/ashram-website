@@ -6,7 +6,7 @@ import { useEffect } from "react";
  * Hook that observes elements with .reveal, .reveal-left, .reveal-right
  * and adds .revealed class when they enter the viewport.
  */
-export function useScrollReveal() {
+export function useScrollReveal(deps: any[] = []) {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -23,11 +23,17 @@ export function useScrollReveal() {
       }
     );
 
-    const elements = document.querySelectorAll(
-      ".reveal, .reveal-left, .reveal-right"
-    );
-    elements.forEach((el) => observer.observe(el));
+    const timer = setTimeout(() => {
+      const elements = document.querySelectorAll(
+        ".reveal, .reveal-left, .reveal-right"
+      );
+      elements.forEach((el) => observer.observe(el));
+    }, 50);
 
-    return () => observer.disconnect();
-  }, []);
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, deps);
 }
+

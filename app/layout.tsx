@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
+import Script from "next/script";
+import { Suspense } from "react";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -39,6 +41,9 @@ export const metadata: Metadata = {
     locale: "en_US",
     siteName: "Santhigiri Ashram",
   },
+  icons: {
+    icon: "/lotus-emblem.jpg", // Must be placed inside the /public folder
+  },
 };
 
 export default function RootLayout({
@@ -51,7 +56,14 @@ export default function RootLayout({
       lang="en"
       className={`${playfair.variable} ${inter.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <Suspense>{children}</Suspense>
+        <Script
+          src="https://checkout.razorpay.com/v1/checkout.js"
+          strategy="afterInteractive"
+        />
+      </body>
     </html>
   );
 }
+

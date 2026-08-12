@@ -5,7 +5,9 @@ export const navItems = [
   { label: "Founder", href: "#founder" },
   { label: "Activities", href: "#activities" },
   { label: "Events", href: "#events" },
+  { label: "News", href: "/news" },
   { label: "Pushpanjali", href: "/pushpanjali" },
+  { label: "Janmashatabdi", href: "/janmashatabdi-mahamahotsav" },
   { label: "Publications", href: "#publications" },
   { label: "Gallery", href: "#gallery" },
   { label: "Donate", href: "/donate" },
@@ -100,6 +102,7 @@ export const news = [
   {
     date: "July 10, 2026",
     title: "New Meditation Center Inaugurated",
+    slug: "new-meditation-center-inaugurated",
     excerpt:
       "The Ashram inaugurated a state-of-the-art meditation center designed to accommodate over 500 practitioners in serene, climate-controlled halls.",
     category: "Infrastructure",
@@ -107,6 +110,7 @@ export const news = [
   {
     date: "July 5, 2026",
     title: "International Yoga Day Celebrations",
+    slug: "international-yoga-day-celebrations",
     excerpt:
       "Thousands of devotees participated in the International Yoga Day celebrations featuring mass yoga sessions, workshops, and spiritual discourses.",
     category: "Events",
@@ -114,6 +118,7 @@ export const news = [
   {
     date: "June 28, 2026",
     title: "Ayurveda Research Center Partnership",
+    slug: "ayurveda-research-center-partnership",
     excerpt:
       "Santhigiri Ashram signed a landmark MoU with leading research institutions for advancing Ayurvedic medicine and holistic healing practices.",
     category: "Research",
@@ -158,26 +163,58 @@ export const videos = [
 export const publications = [
   {
     title: "The Path of the Guru",
+    slug: "the-path-of-the-guru",
+    category: "Books",
     author: "Ashram Publications",
+    price: 350,
+    pages: 248,
+    language: "English",
+    isbn: "978-81-XXXXX-01-0",
     description: "A comprehensive guide to the Guru-disciple tradition and its relevance in modern spiritual life.",
+    longDescription:
+      "This seminal work explores the sacred bond between Guru and disciple — a tradition that forms the very foundation of Indian spiritual life. Drawing from the teachings of Navajyothi Sri Karunakara Guru, this book illuminates the path of surrender, devotion, and self-transformation. It covers the historical significance of the Guru tradition across various spiritual lineages, practical guidance for seekers on the path, and profound insights into the nature of divine grace and spiritual evolution.",
     gradient: "linear-gradient(135deg, #1A3A25, #2D5A3D, #3D7A53)",
   },
   {
     title: "Ayurveda: Wisdom of Life",
+    slug: "ayurveda-wisdom-of-life",
+    category: "Health & Ayurveda",
     author: "Dr. Sreekumar",
+    price: 450,
+    pages: 312,
+    language: "English",
+    isbn: "978-81-XXXXX-02-7",
     description: "An exploration of Ayurvedic principles, remedies, and lifestyle practices for holistic well-being.",
+    longDescription:
+      "Rooted in thousands of years of Indian medical wisdom, this book presents Ayurveda not merely as a system of healing, but as a complete science of life. Dr. Sreekumar bridges ancient knowledge with modern understanding, covering the three doshas, dietary principles, seasonal routines, herbal remedies, and therapeutic practices. Richly illustrated with practical recipes and wellness protocols, it serves as both an introductory guide and a daily reference for anyone seeking harmony of body, mind, and spirit.",
     gradient: "linear-gradient(135deg, #C9A84C, #F5A623, #E8751A)",
   },
   {
     title: "Meditation & Inner Peace",
+    slug: "meditation-and-inner-peace",
+    category: "Meditation",
     author: "Swami Prakashananda",
+    price: 275,
+    pages: 196,
+    language: "English",
+    isbn: "978-81-XXXXX-03-4",
     description: "Practical teachings on meditation techniques drawn from the ancient spiritual traditions of India.",
+    longDescription:
+      "Swami Prakashananda distills decades of meditative practice into clear, accessible teachings suitable for both beginners and advanced practitioners. The book explores multiple meditation traditions — from breath awareness and mantra repetition to contemplative prayer and mindfulness — offering step-by-step instructions for each. Interwoven with stories from the Ashram's spiritual heritage, it demonstrates how regular meditation practice can dissolve stress, awaken inner clarity, and reveal the deeper dimensions of consciousness.",
     gradient: "linear-gradient(135deg, #E8751A, #C55D0E, #1A3A25)",
   },
   {
     title: "Sacred Hymns & Prayers",
+    slug: "sacred-hymns-and-prayers",
+    category: "Devotional",
     author: "Ashram Publications",
+    price: 200,
+    pages: 164,
+    language: "English / Sanskrit",
+    isbn: "978-81-XXXXX-04-1",
     description: "A collection of sacred hymns, chants, and devotional prayers for daily spiritual practice.",
+    longDescription:
+      "This beautifully curated anthology brings together devotional hymns, Vedic chants, and prayers that form the daily spiritual practice at Santhigiri Ashram. Each hymn is presented with its original Sanskrit text, transliteration, and English translation, along with notes on its spiritual significance and the recommended manner of recitation. Whether used for personal worship, group chanting, or contemplative study, this collection is an invaluable companion for deepening one's connection with the Divine.",
     gradient: "linear-gradient(135deg, #3D7A53, #C9A84C, #F0E6C8)",
   },
 ];

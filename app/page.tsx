@@ -2,7 +2,8 @@
 
 import { useScrollReveal } from "@/lib/animations";
 import Navbar from "@/components/Navbar";
-import Hero from "@/components/Hero";
+import HeroCarousel from "@/components/HeroCarousel";
+import MahamahotsavBanner from "@/components/MahamahotsavBanner";
 import About from "@/components/About";
 import Founder from "@/components/Founder";
 import Activities from "@/components/Activities";
@@ -23,7 +24,8 @@ export default function Home() {
     <>
       <Navbar />
       <main>
-        <Hero />
+        <HeroCarousel />
+        <MahamahotsavBanner />
         <About />
         <Founder />
         <Activities />
