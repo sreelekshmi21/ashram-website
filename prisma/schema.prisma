@@ -1,0 +1,232 @@
+// Prisma schema for ashram-website
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== Enums =====
+
+enum ContactStatus {
+  New
+  Read
+  Replied
+  Archived
+}
+
+enum EventStatus {
+  Draft
+  Published
+  Cancelled
+  Completed
+}
+
+enum EventCategory {
+  MONTHLY
+  YEARLY
+  SPECIAL
+}
+
+enum RegistrationStatus {
+  Pending
+  Confirmed
+  Cancelled
+  Completed
+}
+
+enum PaymentStatus {
+  Pending
+  Paid
+  Failed
+  Refunded
+}
+
+enum PublicationStatus {
+  Draft
+  Published
+}
+
+enum AdminRole {
+  SuperAdmin
+  Admin
+  Editor
+}
+
+// ===== Models =====
+
+model AdminUser {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  name         String
+  role         AdminRole @default(Editor)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("admin_users")
+}
+
+model ContactMessage {
+  id        String        @id @default(uuid()) @db.Uuid
+  fullName  String        @map("full_name")
+  email     String
+  subject   String
+  message   String        @db.Text
+  status    ContactStatus @default(New)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  @@map("contact_messages")
+}
+
+model Event {
+  id                   String      @id @default(uuid()) @db.Uuid
+  title                String
+  slug                 String      @unique
+  description          String      @db.Text
+  coverImage           String?     @map("cover_image")
+  venue                String?
+  startDate            DateTime    @map("start_date")
+  endDate              DateTime?   @map("end_date")
+  registrationRequired Boolean     @default(true) @map("registration_required")
+  registrationFee      Decimal     @default(0) @map("registration_fee") @db.Decimal(10, 2)
+  registrationDeadline DateTime?   @map("registration_deadline")
+  status               EventStatus   @default(Draft)
+  category             EventCategory @default(SPECIAL)
+  gradient             String?
+  createdAt            DateTime    @default(now()) @map("created_at")
+  updatedAt            DateTime    @updatedAt @map("updated_at")
+
+  registrations EventRegistration[]
+
+  @@map("events")
+}
+
+model EventRegistration {
+  id                 String             @id @default(uuid()) @db.Uuid
+  registrationNumber String             @unique @map("registration_number")
+  eventId            String             @map("event_id") @db.Uuid
+
+  // Participant Information
+  fullName           String             @map("full_name")
+  gender             String?
+  dateOfBirth        DateTime?          @map("date_of_birth")
+  age                Int?
+  mobileNumber       String             @map("mobile_number")
+  email              String
+  occupation         String?
+  organisation       String?
+
+  // Address
+  addressLine1       String?            @map("address_line_1")
+  addressLine2       String?            @map("address_line_2")
+  city               String?
+  district           String?
+  state              String?
+  country            String?            @default("India")
+  pinCode            String?            @map("pin_code")
+
+  // Emergency Contact
+  emergencyContactName   String?        @map("emergency_contact_name")
+  emergencyRelationship  String?        @map("emergency_relationship")
+  emergencyMobileNumber  String?        @map("emergency_mobile_number")
+
+  // Event Preferences
+  numberOfParticipants   Int            @default(1) @map("number_of_participants")
+  preferredLanguage      String?        @default("English") @map("preferred_language")
+  accommodationRequired  Boolean        @default(false) @map("accommodation_required")
+  foodPreference         String?        @map("food_preference")
+  transportationRequired Boolean        @default(false) @map("transportation_required")
+  arrivalDate            DateTime?      @map("arrival_date")
+  departureDate          DateTime?      @map("departure_date")
+
+  // Health Information
+  medicalCondition       String?        @map("medical_condition") @db.Text
+  allergies              String?        @db.Text
+  currentMedication      String?        @map("current_medication") @db.Text
+  specialAssistance      String?        @map("special_assistance") @db.Text
+
+  // Donation
+  donationAmount         Decimal?       @map("donation_amount") @db.Decimal(10, 2)
+  donationPurpose        String?        @map("donation_purpose")
+
+  // Status
+  registrationStatus     RegistrationStatus @default(Pending) @map("registration_status")
+  paymentStatus          PaymentStatus      @default(Pending) @map("payment_status")
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+
+  event    Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  payments Payment[]
+
+  @@map("event_registrations")
+}
+
+model Payment {
+  id                   String        @id @default(uuid()) @db.Uuid
+  registrationId       String        @map("registration_id") @db.Uuid
+  paymentGateway       String        @default("razorpay") @map("payment_gateway")
+  gatewayOrderId       String?       @map("gateway_order_id")
+  gatewayPaymentId     String?       @map("gateway_payment_id")
+  gatewaySignature     String?       @map("gateway_signature")
+  transactionReference String?       @map("transaction_reference")
+  amount               Decimal       @db.Decimal(10, 2)
+  currency             String        @default("INR")
+  paymentStatus        PaymentStatus @default(Pending) @map("payment_status")
+  paymentDate          DateTime?     @map("payment_date")
+  createdAt            DateTime      @default(now()) @map("created_at")
+
+  registration EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model Publication {
+  id              String            @id @default(uuid()) @db.Uuid
+  title           String
+  slug            String            @unique
+  author          String
+  price           Decimal           @db.Decimal(10, 2)
+  pages           Int
+  language        String
+  isbn            String
+  description     String            @db.Text
+  longDescription String            @map("long_description") @db.Text
+  gradient        String?
+  coverImage      String?           @map("cover_image")
+  status          PublicationStatus @default(Draft)
+  displayOrder    Int               @default(0) @map("display_order")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  @@map("publications")
+}
+
+enum NewsStatus {
+  Draft
+  Published
+}
+
+model News {
+  id         String     @id @default(uuid()) @db.Uuid
+  title      String
+  slug       String     @unique
+  excerpt    String     @db.Text
+  content    String?    @db.Text
+  category   String     @default("General")
+  coverImage String?    @map("cover_image")
+  date       DateTime   @default(now())
+  status     NewsStatus @default(Draft)
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+
+  @@map("news")
+}
+
+
