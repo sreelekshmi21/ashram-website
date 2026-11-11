@@ -168,7 +168,7 @@ export default function PushpanjaliPage() {
 
       // 2. Open Razorpay Checkout popup
       const options: RazorpayOptions = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID! || "rzp_test_TEpvXqtkAOulWh",
         amount: order.amount,
         currency: order.currency,
         name: "Santhigiri Ashram",
@@ -545,11 +545,10 @@ export default function PushpanjaliPage() {
                     key={type.id}
                     type="button"
                     onClick={() => handleChange("pushpanjaliType", type.id)}
-                    className={`relative rounded-xl p-5 text-left border-2 transition-all duration-300 group ${
-                      data.pushpanjaliType === type.id
-                        ? "border-saffron bg-saffron/5 shadow-md shadow-saffron/10"
-                        : "border-gold-light/30 hover:border-saffron/40 hover:bg-cream/50"
-                    }`}
+                    className={`relative rounded-xl p-5 text-left border-2 transition-all duration-300 group ${data.pushpanjaliType === type.id
+                      ? "border-saffron bg-saffron/5 shadow-md shadow-saffron/10"
+                      : "border-gold-light/30 hover:border-saffron/40 hover:bg-cream/50"
+                      }`}
                   >
                     {data.pushpanjaliType === type.id && (
                       <div className="absolute top-3 right-3 w-5 h-5 rounded-full gradient-saffron flex items-center justify-center">
@@ -597,18 +596,16 @@ export default function PushpanjaliPage() {
                       key={deity.id}
                       type="button"
                       onClick={() => handleChange("deity", deity.id)}
-                      className={`flex items-center gap-3 rounded-xl p-3.5 border-2 transition-all duration-300 text-left ${
-                        data.deity === deity.id
-                          ? "border-saffron bg-saffron/5"
-                          : "border-gold-light/30 hover:border-saffron/40"
-                      }`}
+                      className={`flex items-center gap-3 rounded-xl p-3.5 border-2 transition-all duration-300 text-left ${data.deity === deity.id
+                        ? "border-saffron bg-saffron/5"
+                        : "border-gold-light/30 hover:border-saffron/40"
+                        }`}
                     >
                       <div
-                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                          data.deity === deity.id
-                            ? "border-saffron"
-                            : "border-gold-light/50"
-                        }`}
+                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${data.deity === deity.id
+                          ? "border-saffron"
+                          : "border-gold-light/50"
+                          }`}
                       >
                         {data.deity === deity.id && (
                           <div className="w-2 h-2 rounded-full gradient-saffron" />
@@ -643,9 +640,8 @@ export default function PushpanjaliPage() {
                     min={minDate}
                     value={data.preferredDate}
                     onChange={(e) => handleChange("preferredDate", e.target.value)}
-                    className={`w-full px-4 py-3 rounded-xl border bg-cream/30 text-forest-dark focus:outline-none focus:ring-2 focus:ring-saffron/20 focus:border-saffron transition-all duration-300 ${
-                      errors.preferredDate ? "border-red-400" : "border-gold-light/30"
-                    }`}
+                    className={`w-full px-4 py-3 rounded-xl border bg-cream/30 text-forest-dark focus:outline-none focus:ring-2 focus:ring-saffron/20 focus:border-saffron transition-all duration-300 ${errors.preferredDate ? "border-red-400" : "border-gold-light/30"
+                      }`}
                   />
                   {errors.preferredDate && (
                     <p className="text-red-500 text-xs mt-1.5">{errors.preferredDate}</p>
@@ -659,9 +655,8 @@ export default function PushpanjaliPage() {
                   <select
                     value={data.timeSlot}
                     onChange={(e) => handleChange("timeSlot", e.target.value)}
-                    className={`w-full px-4 py-3 rounded-xl border bg-cream/30 text-forest-dark focus:outline-none focus:ring-2 focus:ring-saffron/20 focus:border-saffron transition-all duration-300 appearance-none ${
-                      errors.timeSlot ? "border-red-400" : "border-gold-light/30"
-                    }`}
+                    className={`w-full px-4 py-3 rounded-xl border bg-cream/30 text-forest-dark focus:outline-none focus:ring-2 focus:ring-saffron/20 focus:border-saffron transition-all duration-300 appearance-none ${errors.timeSlot ? "border-red-400" : "border-gold-light/30"
+                      }`}
                   >
                     <option value="">Select a time slot</option>
                     {timeSlots.map((slot) => (
@@ -701,9 +696,8 @@ export default function PushpanjaliPage() {
                       value={data.devoteeName}
                       onChange={(e) => handleChange("devoteeName", e.target.value)}
                       placeholder="Enter your full name"
-                      className={`w-full px-4 py-3 rounded-xl border bg-cream/30 text-forest-dark placeholder-warm-gray-light focus:outline-none focus:ring-2 focus:ring-saffron/20 focus:border-saffron transition-all duration-300 ${
-                        errors.devoteeName ? "border-red-400" : "border-gold-light/30"
-                      }`}
+                      className={`w-full px-4 py-3 rounded-xl border bg-cream/30 text-forest-dark placeholder-warm-gray-light focus:outline-none focus:ring-2 focus:ring-saffron/20 focus:border-saffron transition-all duration-300 ${errors.devoteeName ? "border-red-400" : "border-gold-light/30"
+                        }`}
                     />
                     {errors.devoteeName && (
                       <p className="text-red-500 text-xs mt-1.5">{errors.devoteeName}</p>
@@ -719,9 +713,8 @@ export default function PushpanjaliPage() {
                       value={data.email}
                       onChange={(e) => handleChange("email", e.target.value)}
                       placeholder="your@email.com"
-                      className={`w-full px-4 py-3 rounded-xl border bg-cream/30 text-forest-dark placeholder-warm-gray-light focus:outline-none focus:ring-2 focus:ring-saffron/20 focus:border-saffron transition-all duration-300 ${
-                        errors.email ? "border-red-400" : "border-gold-light/30"
-                      }`}
+                      className={`w-full px-4 py-3 rounded-xl border bg-cream/30 text-forest-dark placeholder-warm-gray-light focus:outline-none focus:ring-2 focus:ring-saffron/20 focus:border-saffron transition-all duration-300 ${errors.email ? "border-red-400" : "border-gold-light/30"
+                        }`}
                     />
                     {errors.email && (
                       <p className="text-red-500 text-xs mt-1.5">{errors.email}</p>
@@ -750,9 +743,8 @@ export default function PushpanjaliPage() {
                           )
                         }
                         placeholder="9876543210"
-                        className={`w-full pl-14 pr-4 py-3 rounded-xl border bg-cream/30 text-forest-dark placeholder-warm-gray-light focus:outline-none focus:ring-2 focus:ring-saffron/20 focus:border-saffron transition-all duration-300 ${
-                          errors.phone ? "border-red-400" : "border-gold-light/30"
-                        }`}
+                        className={`w-full pl-14 pr-4 py-3 rounded-xl border bg-cream/30 text-forest-dark placeholder-warm-gray-light focus:outline-none focus:ring-2 focus:ring-saffron/20 focus:border-saffron transition-all duration-300 ${errors.phone ? "border-red-400" : "border-gold-light/30"
+                          }`}
                       />
                     </div>
                     {errors.phone && (
@@ -766,9 +758,8 @@ export default function PushpanjaliPage() {
                     <select
                       value={data.nakshatra}
                       onChange={(e) => handleChange("nakshatra", e.target.value)}
-                      className={`w-full px-4 py-3 rounded-xl border bg-cream/30 text-forest-dark focus:outline-none focus:ring-2 focus:ring-saffron/20 focus:border-saffron transition-all duration-300 appearance-none ${
-                        errors.nakshatra ? "border-red-400" : "border-gold-light/30"
-                      }`}
+                      className={`w-full px-4 py-3 rounded-xl border bg-cream/30 text-forest-dark focus:outline-none focus:ring-2 focus:ring-saffron/20 focus:border-saffron transition-all duration-300 appearance-none ${errors.nakshatra ? "border-red-400" : "border-gold-light/30"
+                        }`}
                     >
                       <option value="">Select your Nakshatra</option>
                       {nakshatras.map((n) => (
@@ -859,11 +850,10 @@ export default function PushpanjaliPage() {
                             updateFamilyMember(member.id, "name", e.target.value)
                           }
                           placeholder={`Family Member ${index + 1} — Name`}
-                          className={`w-full px-4 py-2.5 rounded-lg border bg-white text-forest-dark placeholder-warm-gray-light text-sm focus:outline-none focus:ring-2 focus:ring-saffron/20 focus:border-saffron transition-all ${
-                            errors[`family_name_${index}`]
-                              ? "border-red-400"
-                              : "border-gold-light/30"
-                          }`}
+                          className={`w-full px-4 py-2.5 rounded-lg border bg-white text-forest-dark placeholder-warm-gray-light text-sm focus:outline-none focus:ring-2 focus:ring-saffron/20 focus:border-saffron transition-all ${errors[`family_name_${index}`]
+                            ? "border-red-400"
+                            : "border-gold-light/30"
+                            }`}
                         />
                         {errors[`family_name_${index}`] && (
                           <p className="text-red-500 text-xs mt-1">
