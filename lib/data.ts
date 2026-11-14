@@ -386,15 +386,74 @@ export async function getPublicationBySlug(slug: string) {
   };
 }
 
+import { videoStreamUrl, videoThumbnailUrl } from "@/lib/videoConfig";
+import { imageDisplayUrl } from "@/lib/imageConfig";
+
+// ── Image Gallery (database-backed with fallback) ───────────────────────────
+
+export interface PublishedGalleryImage {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  url: string;
+  gradient?: string;
+  height?: string;
+  displayOrder: number;
+}
+
 /**
- * Returns gallery images.
+ * Returns published gallery images.
+ * Cached with tag "gallery" for on-demand invalidation.
  */
-export async function getGalleryImages() {
+export async function getGalleryImages(category?: string): Promise<PublishedGalleryImage[]> {
   "use cache";
   cacheLife("content");
   cacheTag("gallery");
 
-  return galleryImages;
+  const whereClause: { status: "Published"; isActive: true; category?: string } = {
+    status: "Published",
+    isActive: true,
+  };
+  if (category && category !== "All") {
+    whereClause.category = category;
+  }
+
+  try {
+    const dbImages = await prisma.imageGallery.findMany({
+      where: whereClause,
+      orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }],
+    });
+
+    if (dbImages && dbImages.length > 0) {
+      const heightPatterns = ["h-64", "h-72", "h-80", "h-64", "h-96", "h-72", "h-64", "h-80"];
+      return dbImages.map((img, idx) => ({
+        id: img.id,
+        title: img.title,
+        description: img.description,
+        category: img.category,
+        url: imageDisplayUrl(img.id),
+        height: heightPatterns[idx % heightPatterns.length],
+        displayOrder: img.displayOrder,
+      }));
+    }
+  } catch (error) {
+    console.warn(
+      "[lib/data] Database unavailable for getGalleryImages, using static fallback:",
+      error instanceof Error ? error.message : error
+    );
+  }
+
+  return galleryImages.map((img) => ({
+    id: String(img.id),
+    title: img.title,
+    description: null,
+    category: "Ashram & Temple",
+    url: "",
+    gradient: img.gradient,
+    height: img.height,
+    displayOrder: img.id,
+  }));
 }
 
 /**
@@ -403,21 +462,104 @@ export async function getGalleryImages() {
 export async function getHomepageData() {
   "use cache";
   cacheLife("homepage");
-  cacheTag("homepage", "publications", "news");
+  cacheTag("homepage", "publications", "news", "videos", "gallery");
 
-  const [dbPublications, dbNews] = await Promise.all([
+  const [dbPublications, dbNews, dbVideos, dbImages] = await Promise.all([
     getPublications(),
     getNewsItems(),
+    getPublishedVideos(),
+    getGalleryImages(),
   ]);
 
   return {
     news: dbNews,
     publications: dbPublications,
-    galleryImages,
+    galleryImages: dbImages,
     activities,
     testimonials,
-    videos,
+    videos: dbVideos,
   };
+}
+
+export interface PublishedVideo {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  streamUrl: string;
+  thumbnailUrl: string | null;
+  durationSeconds: number | null;
+  formattedDuration: string;
+  gradient?: string;
+  displayOrder: number;
+  createdAt: string;
+}
+
+/**
+ * Fetch published videos, ordered by displayOrder asc, then createdAt desc.
+ * Cached with tag "videos" for on-demand revalidation.
+ */
+export async function getPublishedVideos(category?: string): Promise<PublishedVideo[]> {
+  "use cache";
+  cacheLife("content");
+  cacheTag("videos");
+
+  const whereClause: { status: "Published"; category?: string } = {
+    status: "Published",
+  };
+  if (category && category !== "All") {
+    whereClause.category = category;
+  }
+
+  try {
+    const dbVideos = await prisma.video.findMany({
+      where: whereClause,
+      orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }],
+    });
+
+    if (dbVideos && dbVideos.length > 0) {
+      return dbVideos.map((v) => {
+        const sec = v.durationSeconds;
+        let formattedDuration = "";
+        if (sec != null && sec > 0) {
+          const m = Math.floor(sec / 60);
+          const s = sec % 60;
+          formattedDuration = `${m}:${String(s).padStart(2, "0")}`;
+        }
+        return {
+          id: v.id,
+          title: v.title,
+          description: v.description || "",
+          category: v.category,
+          streamUrl: videoStreamUrl(v.id),
+          thumbnailUrl: v.thumbnailKey ? videoThumbnailUrl(v.id) : null,
+          durationSeconds: v.durationSeconds,
+          formattedDuration,
+          displayOrder: v.displayOrder,
+          createdAt: v.createdAt instanceof Date ? v.createdAt.toISOString() : String(v.createdAt),
+        };
+      });
+    }
+  } catch (error) {
+    console.warn(
+      "[lib/data] Database unavailable for getPublishedVideos, using static fallback:",
+      error instanceof Error ? error.message : error
+    );
+  }
+
+  return videos.map((v) => ({
+    id: v.id,
+    title: v.title,
+    description: "Experience the profound teachings and heritage of Santhigiri Ashram.",
+    category: "Spiritual Discourses",
+    streamUrl: "",
+    thumbnailUrl: null,
+    durationSeconds: null,
+    formattedDuration: v.duration,
+    gradient: v.gradient,
+    displayOrder: parseInt(v.id, 10) || 0,
+    createdAt: new Date().toISOString(),
+  }));
 }
 
 

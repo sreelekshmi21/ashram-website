@@ -229,4 +229,63 @@ model News {
   @@map("news")
 }
 
+// ===== Video Gallery =====
+// Video files and thumbnails live in MinIO object storage. Only metadata and
+// object keys are stored here — never the binary content.
+
+enum VideoStatus {
+  Draft
+  Published
+}
+
+model Video {
+  id                String      @id @default(uuid()) @db.Uuid
+  title             String
+  description       String?     @db.Text
+  category          String
+  videoKey          String      @unique @map("video_key")
+  videoMimeType     String      @map("video_mime_type")
+  videoSize         BigInt      @map("video_size")
+  thumbnailKey      String?     @unique @map("thumbnail_key")
+  thumbnailMimeType String?     @map("thumbnail_mime_type")
+  durationSeconds   Int?        @map("duration_seconds")
+  status            VideoStatus @default(Draft)
+  displayOrder      Int         @default(0) @map("display_order")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  @@index([status, displayOrder])
+  @@index([category])
+  @@map("videos")
+}
+
+// ===== Image Gallery =====
+// Image files live in MinIO object storage. Metadata and object keys are stored here.
+
+enum ImageStatus {
+  Draft
+  Published
+}
+
+model ImageGallery {
+  id           String      @id @default(uuid()) @db.Uuid
+  title        String
+  description  String?     @db.Text
+  category     String      @default("General")
+  imageKey     String      @unique @map("image_key")
+  mimeType     String      @map("mime_type")
+  size         BigInt      @map("size")
+  width        Int?
+  height       Int?
+  status       ImageStatus @default(Draft)
+  isActive     Boolean     @default(true) @map("is_active")
+  displayOrder Int         @default(0) @map("display_order")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  @@index([status, isActive, displayOrder])
+  @@index([category])
+  @@map("image_gallery")
+}
+
 

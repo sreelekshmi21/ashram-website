@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 import NavItem from "./NavItem";
 import type { AdminSession } from "@/lib/auth";
 
-// ── SVG Icons (inline, no external deps) ────────────────────────────────────
+// ── SVG Icons ───────────────────────────────────────────────────────────────
 
 function DashboardIcon() {
   return (
@@ -87,6 +89,45 @@ function GalleryIcon() {
   );
 }
 
+function ImageIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="7" cy="7" r="1.5" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M2 14L6 10L9 13L13 9L18 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function VideoIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="4" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M14 8.5L18 6V14L14 11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M7 8V12L10 10L7 8Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon({ isOpen }: { isOpen: boolean }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{
+        transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+        transition: "transform 0.2s ease",
+        marginLeft: "auto",
+      }}
+    >
+      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function PublicationsIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -126,20 +167,22 @@ function UsersIcon() {
   );
 }
 
-// ── Navigation definitions ──────────────────────────────────────────────────
+// ── Types ───────────────────────────────────────────────────────────────────
+
+interface NavItemDef {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  disabled?: boolean;
+  comingSoon?: boolean;
+}
 
 interface NavSection {
   title?: string;
-  items: {
-    href: string;
-    label: string;
-    icon: React.ReactNode;
-    disabled?: boolean;
-    comingSoon?: boolean;
-  }[];
+  items: NavItemDef[];
 }
 
-const navSections: NavSection[] = [
+const mainNavSections: NavSection[] = [
   {
     items: [
       { href: "/admin", label: "Dashboard", icon: <DashboardIcon /> },
@@ -150,16 +193,6 @@ const navSections: NavSection[] = [
     ],
   },
   {
-    title: "Content",
-    items: [
-      { href: "/admin/faculty", label: "Faculty", icon: <FacultyIcon />, disabled: true, comingSoon: true },
-      { href: "/admin/news", label: "News", icon: <NewsIcon /> },
-      { href: "/admin/gallery", label: "Gallery", icon: <GalleryIcon />, disabled: true, comingSoon: true },
-      { href: "/admin/publications", label: "Publications", icon: <PublicationsIcon /> },
-      { href: "/admin/testimonials", label: "Testimonials", icon: <TestimonialsIcon />, disabled: true, comingSoon: true },
-    ],
-  },
-  {
     title: "System",
     items: [
       { href: "/admin/site-settings", label: "Site Settings", icon: <SettingsIcon />, disabled: true, comingSoon: true },
@@ -167,8 +200,6 @@ const navSections: NavSection[] = [
     ],
   },
 ];
-
-// ── Component ───────────────────────────────────────────────────────────────
 
 interface AdminSidebarProps {
   session: AdminSession;
@@ -187,6 +218,9 @@ export default function AdminSidebar({
 }: AdminSidebarProps) {
   const pathname = usePathname();
 
+  const isGalleryActive = pathname.startsWith("/admin/gallery") || pathname.startsWith("/admin/videos");
+  const [galleryOpen, setGalleryOpen] = useState(true);
+
   const isActive = (href: string) => {
     if (href === "/admin") return pathname === "/admin";
     return pathname.startsWith(href);
@@ -201,7 +235,6 @@ export default function AdminSidebar({
 
   return (
     <>
-      {/* Mobile overlay */}
       {isMobileOpen && (
         <div
           className="admin-sidebar-overlay"
@@ -220,47 +253,17 @@ export default function AdminSidebar({
           .join(" ")}
         aria-label="Admin navigation"
       >
-        {/* Logo & collapse toggle */}
         <div className="admin-sidebar__header">
           <div className="admin-sidebar__logo">
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 48 48"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
+            <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
               <circle cx="24" cy="24" r="23" stroke="#C9A84C" strokeWidth="2" />
-              <path
-                d="M24 8C24 8 18 16 18 22C18 25.3 20.7 28 24 28C27.3 28 30 25.3 30 22C30 16 24 8 24 8Z"
-                fill="#E8751A"
-                opacity="0.9"
-              />
-              <path
-                d="M24 14C24 14 21 19 21 22.5C21 24.2 22.3 25.5 24 25.5C25.7 25.5 27 24.2 27 22.5C27 19 24 14 24 14Z"
-                fill="#F5A623"
-              />
-              <path
-                d="M14 30C16 28 19.5 27 24 27C28.5 27 32 28 34 30"
-                stroke="#2D5A3D"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-              <path
-                d="M10 34C13 31 18 29 24 29C30 29 35 31 38 34"
-                stroke="#3D7A53"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                opacity="0.6"
-              />
+              <path d="M24 8C24 8 18 16 18 22C18 25.3 20.7 28 24 28C27.3 28 30 25.3 30 22C30 16 24 8 24 8Z" fill="#E8751A" opacity="0.9" />
+              <path d="M24 14C24 14 21 19 21 22.5C21 24.2 22.3 25.5 24 25.5C25.7 25.5 27 24.2 27 22.5C27 19 24 14 24 14Z" fill="#F5A623" />
+              <path d="M14 30C16 28 19.5 27 24 27C28.5 27 32 28 34 30" stroke="#2D5A3D" strokeWidth="2" strokeLinecap="round" />
             </svg>
-            {!isCollapsed && (
-              <span className="admin-sidebar__logo-text">Santhigiri</span>
-            )}
+            {!isCollapsed && <span className="admin-sidebar__logo-text">Santhigiri</span>}
           </div>
 
-          {/* Collapse toggle — hidden on mobile */}
           <button
             className="admin-sidebar__collapse-btn"
             onClick={onToggleCollapse}
@@ -271,51 +274,161 @@ export default function AdminSidebar({
               height="18"
               viewBox="0 0 18 18"
               fill="none"
-              xmlns="http://www.w3.org/2000/svg"
               style={{
                 transform: isCollapsed ? "rotate(180deg)" : "none",
                 transition: "transform 0.2s ease",
               }}
             >
-              <path
-                d="M11 4L6 9L11 14"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+              <path d="M11 4L6 9L11 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
         </div>
 
-        {/* Navigation */}
         <nav className="admin-sidebar__nav">
-          {navSections.map((section, sIdx) => (
-            <div key={sIdx} className="admin-sidebar__section">
-              {section.title && !isCollapsed && (
-                <p className="admin-sidebar__section-title">{section.title}</p>
+          {/* Main section */}
+          <div className="admin-sidebar__section">
+            {mainNavSections[0].items.map((item) => (
+              <NavItem
+                key={item.href}
+                href={item.href}
+                label={item.label}
+                icon={item.icon}
+                isActive={isActive(item.href)}
+                isCollapsed={isCollapsed}
+                isDisabled={item.disabled}
+                comingSoon={item.comingSoon}
+                onClick={onCloseMobile}
+              />
+            ))}
+          </div>
+
+          {/* Content section */}
+          <div className="admin-sidebar__section">
+            {!isCollapsed && <p className="admin-sidebar__section-title">Content</p>}
+            {isCollapsed && <div className="admin-sidebar__section-divider" />}
+
+            <NavItem
+              href="/admin/faculty"
+              label="Faculty"
+              icon={<FacultyIcon />}
+              isCollapsed={isCollapsed}
+              isDisabled={true}
+              comingSoon={true}
+              onClick={onCloseMobile}
+            />
+
+            <NavItem
+              href="/admin/news"
+              label="News"
+              icon={<NewsIcon />}
+              isActive={isActive("/admin/news")}
+              isCollapsed={isCollapsed}
+              onClick={onCloseMobile}
+            />
+
+            {/* Gallery Parent with Submenu */}
+            <div className="admin-sidebar__group">
+              <button
+                type="button"
+                onClick={() => setGalleryOpen((prev) => !prev)}
+                className={[
+                  "admin-nav-item",
+                  "admin-nav-item--parent",
+                  isGalleryActive ? "admin-nav-item--active" : "",
+                  isCollapsed ? "admin-nav-item--collapsed" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                style={{ width: "calc(100% - 1rem)", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+                aria-expanded={galleryOpen}
+              >
+                <span className="admin-nav-item__icon"><GalleryIcon /></span>
+                {!isCollapsed && (
+                  <>
+                    <span className="admin-nav-item__label" style={{ flex: 1 }}>Gallery</span>
+                    <ChevronDownIcon isOpen={galleryOpen} />
+                  </>
+                )}
+                {isCollapsed && <span className="admin-nav-item__tooltip">Gallery</span>}
+              </button>
+
+              {/* Submenu */}
+              {!isCollapsed && galleryOpen && (
+                <div style={{ paddingLeft: "1.25rem", margin: "2px 0 6px 0" }}>
+                  <Link
+                    href="/admin/gallery"
+                    onClick={onCloseMobile}
+                    className={[
+                      "admin-nav-item",
+                      pathname === "/admin/gallery" ? "admin-nav-item--active" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    style={{ fontSize: "0.8125rem", padding: "0.375rem 0.75rem", margin: "1px 0.5rem" }}
+                  >
+                    <span className="admin-nav-item__icon" style={{ opacity: 0.8 }}><ImageIcon /></span>
+                    <span className="admin-nav-item__label">Image Gallery</span>
+                  </Link>
+
+                  <Link
+                    href="/admin/videos"
+                    onClick={onCloseMobile}
+                    className={[
+                      "admin-nav-item",
+                      pathname.startsWith("/admin/videos") ? "admin-nav-item--active" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    style={{ fontSize: "0.8125rem", padding: "0.375rem 0.75rem", margin: "1px 0.5rem" }}
+                  >
+                    <span className="admin-nav-item__icon" style={{ opacity: 0.8 }}><VideoIcon /></span>
+                    <span className="admin-nav-item__label">Video Gallery</span>
+                  </Link>
+                </div>
               )}
-              {section.title && isCollapsed && (
-                <div className="admin-sidebar__section-divider" />
-              )}
-              {section.items.map((item) => (
-                <NavItem
-                  key={item.href}
-                  href={item.href}
-                  label={item.label}
-                  icon={item.icon}
-                  isActive={isActive(item.href)}
-                  isCollapsed={isCollapsed}
-                  isDisabled={item.disabled}
-                  comingSoon={item.comingSoon}
-                  onClick={onCloseMobile}
-                />
-              ))}
             </div>
-          ))}
+
+            <NavItem
+              href="/admin/publications"
+              label="Publications"
+              icon={<PublicationsIcon />}
+              isActive={isActive("/admin/publications")}
+              isCollapsed={isCollapsed}
+              onClick={onCloseMobile}
+            />
+
+            <NavItem
+              href="/admin/testimonials"
+              label="Testimonials"
+              icon={<TestimonialsIcon />}
+              isCollapsed={isCollapsed}
+              isDisabled={true}
+              comingSoon={true}
+              onClick={onCloseMobile}
+            />
+          </div>
+
+          {/* System section */}
+          <div className="admin-sidebar__section">
+            {!isCollapsed && <p className="admin-sidebar__section-title">System</p>}
+            {isCollapsed && <div className="admin-sidebar__section-divider" />}
+
+            {mainNavSections[1].items.map((item) => (
+              <NavItem
+                key={item.href}
+                href={item.href}
+                label={item.label}
+                icon={item.icon}
+                isActive={isActive(item.href)}
+                isCollapsed={isCollapsed}
+                isDisabled={item.disabled}
+                comingSoon={item.comingSoon}
+                onClick={onCloseMobile}
+              />
+            ))}
+          </div>
         </nav>
 
-        {/* User info at bottom */}
         <div className="admin-sidebar__footer">
           <div className="admin-sidebar__user">
             <div className="admin-sidebar__avatar">{initials}</div>

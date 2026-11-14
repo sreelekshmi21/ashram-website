@@ -56,6 +56,18 @@ const defaultActions: QuickActionItem[] = [
       </svg>
     ),
   },
+  {
+    title: "Video Gallery",
+    description: "Upload and manage videos",
+    href: "/admin/videos",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="4" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M14 8.5L18 6V14L14 11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M7 8V12L10 10L7 8Z" fill="currentColor" />
+      </svg>
+    ),
+  },
 ];
 
 export default function QuickActions() {
